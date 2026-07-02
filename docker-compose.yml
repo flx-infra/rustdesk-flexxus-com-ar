@@ -1,0 +1,79 @@
+version: '3.6'
+
+services:
+  hbbs:
+    image: rustdesk/rustdesk-server:latest
+    # -r: host/IP que los clientes usarán para llegar al RELAY (hbbr)
+    # -k _: genera y EXIGE key de encriptación (solo clientes autorizados)
+    command: hbbs -r ${RUSTDESK_RELAY_HOST} -k _
+    deploy:
+      placement:
+        constraints: ["${NODE}"]
+      restart_policy:
+        condition: any
+    environment:
+      - TZ=America/Argentina/Cordoba
+    # mode: host -> NO usa el ingress mesh de Swarm (que hace SNAT y rompe el P2P).
+    # Preserva la IP real del cliente, imprescindible para el hole-punching.
+    ports:
+      - target: 21115
+        published: 21115
+        protocol: tcp
+        mode: host
+      - target: 21116
+        published: 21116
+        protocol: tcp
+        mode: host
+      - target: 21116
+        published: 21116
+        protocol: udp
+        mode: host
+      - target: 21118          # web client (opcional)
+        published: 21118
+        protocol: tcp
+        mode: host
+    volumes:
+      - rustdesk_data:/root    # guarda la Key (id_ed25519) y la DB -> DEBE ser persistente
+    networks:
+      - rustdesk
+    logging:
+      driver: loki
+      options:
+        loki-url: ${LOKI_URL}
+
+  hbbr:
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr -k _
+    deploy:
+      placement:
+        constraints: ["${NODE}"]
+      restart_policy:
+        condition: any
+    environment:
+      - TZ=America/Argentina/Cordoba
+    ports:
+      - target: 21117
+        published: 21117
+        protocol: tcp
+        mode: host
+      - target: 21119          # relay web (opcional)
+        published: 21119
+        protocol: tcp
+        mode: host
+    volumes:
+      - rustdesk_data:/root    # mismo volumen que hbbs -> comparten la misma Key
+    networks:
+      - rustdesk
+    logging:
+      driver: loki
+      options:
+        loki-url: ${LOKI_URL}
+
+volumes:
+  rustdesk_data:
+    name: "${SERVICE_NAME}_data"
+
+networks:
+  rustdesk:
+    driver: overlay
+    attachable: true

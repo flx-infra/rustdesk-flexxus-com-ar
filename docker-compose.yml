@@ -11,6 +11,9 @@ services:
         constraints: ["${NODE}"]
       restart_policy:
         condition: any
+      resources:                 # ← NUEVO: techo de RAM; si se infla, cae SOLO este contenedor
+        limits:
+          memory: 512M
     environment:
       - TZ=America/Argentina/Cordoba
     # mode: host -> NO usa el ingress mesh de Swarm (que hace SNAT y rompe el P2P).
@@ -36,10 +39,11 @@ services:
       - rustdesk_data:/root    # guarda la Key (id_ed25519) y la DB -> DEBE ser persistente
     networks:
       - rustdesk
-    logging:
-      driver: loki
+    logging:                     # ← CAMBIADO: loki -> json-file (sin buffering en RAM)
+      driver: json-file
       options:
-        loki-url: ${LOKI_URL}
+        max-size: "10m"
+        max-file: "3"
 
   hbbr:
     image: rustdesk/rustdesk-server:latest
@@ -49,6 +53,9 @@ services:
         constraints: ["${NODE}"]
       restart_policy:
         condition: any
+      resources:                 # ← NUEVO
+        limits:
+          memory: 512M
     environment:
       - TZ=America/Argentina/Cordoba
     ports:
@@ -64,10 +71,11 @@ services:
       - rustdesk_data:/root    # mismo volumen que hbbs -> comparten la misma Key
     networks:
       - rustdesk
-    logging:
-      driver: loki
+    logging:                     # ← CAMBIADO
+      driver: json-file
       options:
-        loki-url: ${LOKI_URL}
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   rustdesk_data:

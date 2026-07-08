@@ -3,21 +3,21 @@ version: '3.6'
 services:
   hbbs:
     image: rustdesk/rustdesk-server:latest
-    # -r: host/IP que los clientes usarán para llegar al RELAY (hbbr)
-    # -k _: genera y EXIGE key de encriptación (solo clientes autorizados)
+    # -r: host del RELAY (hbbr) para los clientes | -k _: exige key de encriptación
     command: hbbs -r ${RUSTDESK_RELAY_HOST} -k _
     deploy:
       placement:
         constraints: ["${NODE}"]
       restart_policy:
         condition: any
-      resources:                 # ← NUEVO: techo de RAM; si se infla, cae SOLO este contenedor
+      resources:
         limits:
-          memory: 512M
+          cpus: "0.50"
+          memory: 256M
     environment:
       - TZ=America/Argentina/Cordoba
-    # mode: host -> NO usa el ingress mesh de Swarm (que hace SNAT y rompe el P2P).
-    # Preserva la IP real del cliente, imprescindible para el hole-punching.
+    # mode: host -> evita el ingress mesh (SNAT) de Swarm; preserva la IP real
+    # del cliente, imprescindible para el hole-punching P2P.
     ports:
       - target: 21115
         published: 21115
@@ -31,15 +31,15 @@ services:
         published: 21116
         protocol: udp
         mode: host
-      - target: 21118          # web client (opcional)
+      - target: 21118
         published: 21118
         protocol: tcp
         mode: host
     volumes:
-      - rustdesk_data:/root    # guarda la Key (id_ed25519) y la DB -> DEBE ser persistente
+      - rustdesk_data:/root    # persiste la Key (id_ed25519) y la DB
     networks:
       - rustdesk
-    logging:                     # ← CAMBIADO: loki -> json-file (sin buffering en RAM)
+    logging:
       driver: json-file
       options:
         max-size: "10m"
@@ -53,9 +53,10 @@ services:
         constraints: ["${NODE}"]
       restart_policy:
         condition: any
-      resources:                 # ← NUEVO
+      resources:
         limits:
-          memory: 512M
+          cpus: "0.50"
+          memory: 256M
     environment:
       - TZ=America/Argentina/Cordoba
     ports:
@@ -63,15 +64,15 @@ services:
         published: 21117
         protocol: tcp
         mode: host
-      - target: 21119          # relay web (opcional)
+      - target: 21119
         published: 21119
         protocol: tcp
         mode: host
     volumes:
-      - rustdesk_data:/root    # mismo volumen que hbbs -> comparten la misma Key
+      - rustdesk_data:/root    # mismo volumen que hbbs -> comparten la Key
     networks:
       - rustdesk
-    logging:                     # ← CAMBIADO
+    logging:
       driver: json-file
       options:
         max-size: "10m"
